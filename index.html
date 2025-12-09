@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Secure Admin Login</title>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  #login-container {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+  }
+
+  #login-container h1 {
+    margin-bottom: 20px;
+    color: #333;
+  }
+
+  #login-form {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #login-form input {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+  }
+
+  #login-form button {
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: #4CAF50;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  #login-form button:hover {
+    background-color: #45a049;
+  }
+
+  #login-error {
+    color: red;
+    margin-top: 10px;
+  }
+
+  #loader {
+    border: 12px solid #f3f3f3;
+    border-top: 12px solid #4CAF50;
+    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg);}
+    100% { transform: rotate(360deg);}
+  }
+
+  #redirect-page, #admin-panel, #iframe-page {
+    display: none;
+  }
+
+  #redirect-page {
+    text-align: center;
+    padding-top: 50px;
+  }
+</style>
+</head>
+<body>
+
+<div id="login-container">
+  <h1>Welcome to Secure Admin Portal</h1>
+  <form id="login-form">
+    <input type="email" id="username" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button type="submit">Login</button>
+  </form>
+  <div id="login-error"></div>
+</div>
+
+<div id="admin-panel">
+  <h2>Admin Panel</h2>
+  <div>
+    <h3>Add User</h3>
+    <input type="email" id="new-user-email" placeholder="User Email" />
+    <button onclick="addUser()">Add User</button>
+  </div>
+  <div>
+    <h3>Ban User</h3>
+    <input type="email" id="ban-user-email" placeholder="User Email" />
+    <button onclick="banUser()">Ban User</button>
+  </div>
+  <div>
+    <h3>Remove User</h3>
+    <input type="email" id="remove-user-email" placeholder="User Email" />
+    <button onclick="removeUser()">Remove User</button>
+  </div>
+  <button onclick="startRedirect()">Go to Redirect Page</button>
+</div>
+
+<div id="redirect-page">
+  <div class="loader"></div>
+  <div id="countdown">Redirecting in 3 seconds...</div>
+</div>
+
+<div id="iframe-page">
+  <iframe id="content-iframe" src="" style="width:100%; height:90vh; border:none;"></iframe>
+</div>
+
+<script>
+// In-memory user database
+const users = {}; // { email: { banned: false } }
+
+// Admin credentials (hashed password for "201309!")
+const adminEmail = "antonkrupinski@starsclm.com";
+const adminPasswordHash = "$2a$10$HkK7wbdZ1Y1cQ7kP4cV7uO1a2K6e7zRk3hhOeZpZlD5U5iA9G8V8i";
+
+// Load bcryptjs from CDN
+const script = document.createElement('script');
+script.src = "https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js";
+document.head.appendChild(script);
+
+script.onload = () => {
+  document.getElementById('login-form').addEventListener('submit', verifyLogin);
+};
+
+function verifyLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errorDiv = document.getElementById('login-error');
+
+  if (email === adminEmail) {
+    bcrypt.compare(password, adminPasswordHash, (err, res) => {
+      if(res) {
+        showAdminPanel();
+      } else {
+        errorDiv.innerText = "Invalid credentials.";
+      }
+    });
+  } else {
+    errorDiv.innerText = "Only admin can login.";
+  }
+}
+
+function showAdminPanel() {
+  document.getElementById('login-container').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'block';
+}
+
+function addUser() {
+  const email = document.getElementById('new-user-email').value.trim();
+  if(email && !users[email]) {
+    users[email] = { banned: false };
+    alert('User added: ' + email);
+  } else {
+    alert('Invalid or existing user');
+  }
+}
+
+function banUser() {
+  const email = document.getElementById('ban-user-email').value.trim();
+  if(users[email]) {
+    users[email].banned = true;
+    alert('User banned: ' + email);
+  } else {
+    alert('User not found');
+  }
+}
+
+function removeUser() {
+  const email = document.getElementById('remove-user-email').value.trim();
+  if(users[email]) {
+    delete users[email];
+    alert('User removed: ' + email);
+  } else {
+    alert('User not found');
+  }
+}
+
+function startRedirect() {
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('redirect-page').style.display = 'block';
+  let seconds = 3;
+  const countdownDiv = document.getElementById('countdown');
+  countdownDiv.innerText = `Redirecting in ${seconds} seconds...`;
+
+  const interval = setInterval(() => {
+    seconds--;
+    if (seconds > 0) {
+      countdownDiv.innerText = `Redirecting in ${seconds} seconds...`;
+    } else {
+      clearInterval(interval);
+      loadIframePage();
+    }
+  }, 1000);
+}
+
+function loadIframePage() {
+  document.getElementById('redirect-page').style.display = 'none';
+  document.getElementById('iframe-page').style.display = 'block';
+  const iframe = document.getElementById('content-iframe');
+  iframe.src = "https://www-premiumweb.starsclm.com/";
+  setupIframeLinkHandling(iframe);
+}
+
+function setupIframeLinkHandling(iframe) {
+  iframe.onload = () => {
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      const links = doc.querySelectorAll('a[href]');
+      links.forEach(link => {
+        link.addEventListener('click', e => {
+          e.preventDefault();
+          const url = link.href;
+          if (url.includes('.com/')) {
+            window.open(url, '_blank');
+          } else {
+            iframe.src = url;
+          }
+        });
+      });
+    } catch (e) {
+      // Cross-origin restrictions
+      console.log('Cannot access iframe content:', e);
+    }
+  };
+}
+</script>
+
+</body>
+</html>
